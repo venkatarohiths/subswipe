@@ -318,7 +318,7 @@ function App() {
               {item.type === 'video' ? (
                 <ReelVideo item={item} />
               ) : (
-                <img src={item.url} loading="lazy" alt={item.title} decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                <img src={item.url} loading={idx === 0 ? 'eager' : 'lazy'} fetchPriority={idx === 0 ? 'high' : 'auto'} alt={item.title} decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
               )}
             </div>
             <footer className={`meta glass ${activeMetaId === item.id ? 'show' : ''}`}>
