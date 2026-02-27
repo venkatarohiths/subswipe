@@ -26,14 +26,16 @@ npm run build
 npm run preview
 ```
 
-## Deployment
-This repo includes a GitHub Actions workflow to deploy to **GitHub Pages** on push to `main`.
+## Deployment (GitHub Pages)
+Manual publish flow used in this setup:
 
-After first push:
-1. GitHub repo → Settings → Pages
-2. Source should be **GitHub Actions**
-3. Site URL will be:
-   `https://<your-username>.github.io/reddy-reels/`
+```bash
+npm run build
+# publish dist/ to gh-pages branch
+```
+
+Site URL:
+`https://<your-username>.github.io/reddy-reels/`
 
 ## Roadmap
 - NSFW/safety filters
