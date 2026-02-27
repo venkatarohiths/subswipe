@@ -161,6 +161,8 @@ function App() {
   const [error, setError] = useState('')
   const [sourceInfo, setSourceInfo] = useState('')
   const [feed, setFeed] = useState<ReelItem[]>([])
+  const [showUi, setShowUi] = useState(true)
+  const [activeMetaId, setActiveMetaId] = useState<string | null>(null)
 
   const subreddits = useMemo(() => normalizeSubreddits(query), [query])
 
@@ -199,7 +201,7 @@ function App() {
 
   return (
     <main>
-      <header className="topbar glass">
+      <header className={`topbar glass ${showUi ? '' : 'hiddenUi'}`}>
         <motion.h1 initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>SubSwipe</motion.h1>
         <form onSubmit={onLoad} className="queryForm">
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Subreddits (e.g. funny,memes,wallpapers,gifs)" />
@@ -209,17 +211,22 @@ function App() {
         {!!error && <p className="error">{error}</p>}
       </header>
 
+      <button className="uiToggle" type="button" onClick={() => setShowUi((v) => !v)}>
+        {showUi ? 'Focus mode ✨' : 'Show UI'}
+      </button>
+
       <section className="reels" aria-live="polite">
         {!feed.length && !loading && <div className="empty">Load one or more subreddits to view a swipe feed.</div>}
 
-        {feed.map((item) => (
+        {feed.map((item, idx) => (
           <motion.article
             key={item.id}
             className="reel"
-            initial={{ opacity: 0.35, rotateX: 14, scale: 0.96 }}
-            whileInView={{ opacity: 1, rotateX: 0, scale: 1 }}
-            viewport={{ amount: 0.7 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
+            initial={{ opacity: 0.2, rotateX: 22, scale: 0.9, y: 40 }}
+            whileInView={{ opacity: 1, rotateX: 0, scale: 1, y: 0 }}
+            viewport={{ amount: 0.65 }}
+            transition={{ duration: 0.42, ease: 'easeOut', delay: Math.min(idx * 0.01, 0.08) }}
+            onClick={() => setActiveMetaId((id) => (id === item.id ? null : item.id))}
           >
             <div className="mediaWrap glass">
               {item.type === 'video' ? (
@@ -228,10 +235,10 @@ function App() {
                 <img src={item.url} loading="lazy" alt={item.title} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
               )}
             </div>
-            <footer className="meta glass">
+            <footer className={`meta glass ${activeMetaId === item.id ? 'show' : ''}`}>
               <p className="title">{item.title}</p>
               <p>r/{item.subreddit} • u/{item.author} • ▲{item.ups}</p>
-              <a href={item.permalink} target="_blank" rel="noreferrer">Open on Reddit</a>
+              <a href={item.permalink} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open on Reddit</a>
             </footer>
           </motion.article>
         ))}
