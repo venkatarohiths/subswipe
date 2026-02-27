@@ -107,6 +107,12 @@ main::after { background: #06b6d4; bottom: -15vw; right: -10vw; animation: blobB
   color: #c1d3ff;
   padding: 24px;
 }
+.loadMoreSentinel {
+  text-align: center;
+  color: #9ec5ff;
+  font-size: 12px;
+  padding: 14px 0 28px;
+}
 
 .reel {
   scroll-snap-align: start;

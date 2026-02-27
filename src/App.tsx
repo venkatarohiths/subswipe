@@ -37,6 +37,7 @@ type RedditChild = {
 
 const FETCH_LIMIT = 30
 const CACHE_TTL_MS = 5 * 60 * 1000
+const PAGE_SIZE = 15
 
 const suggestedSubreddits = [
   'pics', 'videos', 'funny', 'memes', 'nextfuckinglevel', 'interestingasfuck', 'EarthPorn', 'wallpapers', 'aww', 'oddlysatisfying',
@@ -211,6 +212,8 @@ function App() {
   const [showUi, setShowUi] = useState(true)
   const [activeMetaId, setActiveMetaId] = useState<string | null>(null)
   const [dataSaver, setDataSaver] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
   const subreddits = useMemo(() => normalizeSubreddits(query), [query])
   const currentToken = useMemo(() => query.split(',').slice(-1)[0]?.trim() ?? '', [query])
@@ -265,6 +268,27 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataSaver])
 
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [feed])
+
+  useEffect(() => {
+    const node = loadMoreRef.current
+    if (!node) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((v) => Math.min(v + PAGE_SIZE, feed.length))
+        }
+      },
+      { rootMargin: '240px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [feed.length])
+
+  const visibleFeed = feed.slice(0, visibleCount)
+
   return (
     <main>
       <header className={`topbar glass ${showUi ? '' : 'hiddenUi'}`}>
@@ -304,7 +328,7 @@ function App() {
       <section className="reels" aria-live="polite">
         {!feed.length && !loading && <div className="empty">Load one or more subreddits to view a swipe feed.</div>}
 
-        {feed.map((item, idx) => (
+        {visibleFeed.map((item, idx) => (
           <motion.article
             key={item.id}
             className="reel"
@@ -328,6 +352,12 @@ function App() {
             </footer>
           </motion.article>
         ))}
+
+        {visibleCount < feed.length && (
+          <div ref={loadMoreRef} className="loadMoreSentinel">
+            Loading more…
+          </div>
+        )}
       </section>
     </main>
   )
