@@ -76,6 +76,22 @@ main { min-height: 100vh; perspective: 1200px; }
   height: 100%;
   object-fit: contain;
 }
+.videoBox {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.soundToggle {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  background: rgba(7,10,18,0.55);
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 12px;
+}
 .meta {
   margin-top: 8px;
   padding: 12px;

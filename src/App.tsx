@@ -21,6 +21,7 @@ type RedditChild = {
     title: string
     subreddit: string
     permalink: string
+    post_hint?: string
     is_video?: boolean
     media?: { reddit_video?: { fallback_url?: string } }
     preview?: { images?: Array<{ source?: { url?: string } }> }
@@ -44,6 +45,8 @@ function normalizeSubreddits(input: string) {
     .filter(Boolean)
 }
 
+const toVideoIfGifv = (url: string) => (url.endsWith('.gifv') ? url.replace(/\.gifv$/i, '.mp4') : url)
+
 function mapPost(post: RedditChild['data']): ReelItem[] {
   const base = {
     id: post.id,
@@ -55,26 +58,48 @@ function mapPost(post: RedditChild['data']): ReelItem[] {
   }
 
   if (post.is_video && post.media?.reddit_video?.fallback_url) {
-    return [{ ...base, type: 'video', url: post.media.reddit_video.fallback_url, thumb: decodeHtml(post.preview?.images?.[0]?.source?.url) }]
+    return [
+      {
+        ...base,
+        type: 'video',
+        url: post.media.reddit_video.fallback_url,
+        thumb: decodeHtml(post.preview?.images?.[0]?.source?.url),
+      },
+    ]
   }
 
   if (post.is_gallery && post.gallery_data?.items?.length && post.media_metadata) {
     return post.gallery_data.items
       .map((item, idx) => {
-        const img = decodeHtml(post.media_metadata?.[item.media_id]?.s?.u)
-        if (!img) return null
-        return { ...base, id: `${post.id}-${idx}`, type: 'image' as const, url: img }
+        const mediaUrl = decodeHtml(post.media_metadata?.[item.media_id]?.s?.u)
+        if (!mediaUrl) return null
+        const url = toVideoIfGifv(mediaUrl)
+        const isVideo = /\.(mp4|webm)$/i.test(url)
+        return {
+          ...base,
+          id: `${post.id}-${idx}`,
+          type: (isVideo ? 'video' : 'image') as 'video' | 'image',
+          url,
+        }
       })
       .filter(Boolean) as ReelItem[]
   }
 
-  const maybeImage = decodeHtml(post.url_overridden_by_dest || post.url)
-  if (maybeImage.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
-    return [{ ...base, type: 'image', url: maybeImage }]
+  const rawUrl = decodeHtml(post.url_overridden_by_dest || post.url)
+  const mediaUrl = toVideoIfGifv(rawUrl)
+
+  if (/\.(mp4|webm)$/i.test(mediaUrl) || post.post_hint === 'hosted:video') {
+    return [{ ...base, type: 'video', url: mediaUrl, thumb: decodeHtml(post.preview?.images?.[0]?.source?.url) }]
+  }
+
+  if (/\.(jpg|jpeg|png|webp|gif)$/i.test(mediaUrl)) {
+    return [{ ...base, type: 'image', url: mediaUrl }]
   }
 
   const preview = decodeHtml(post.preview?.images?.[0]?.source?.url)
-  if (preview) return [{ ...base, type: 'image', url: preview }]
+  if (preview) {
+    return [{ ...base, type: 'image', url: preview }]
+  }
 
   return []
 }
@@ -97,8 +122,41 @@ async function fetchSubredditMedia(name: string): Promise<{ items: ReelItem[]; s
   }
 }
 
+function ReelVideo({ item }: { item: ReelItem }) {
+  const [muted, setMuted] = useState(true)
+
+  return (
+    <div className="videoBox">
+      <video
+        src={item.url}
+        muted={muted}
+        autoPlay
+        loop
+        playsInline
+        preload="metadata"
+        poster={item.thumb}
+        onClick={(e) => {
+          const v = e.currentTarget
+          if (v.paused) v.play().catch(() => null)
+          setMuted((m) => !m)
+        }}
+        onError={(e) => {
+          ;(e.currentTarget as HTMLVideoElement).style.display = 'none'
+        }}
+      />
+      <button
+        className="soundToggle"
+        onClick={() => setMuted((m) => !m)}
+        type="button"
+      >
+        {muted ? 'Tap for sound 🔇' : 'Sound on 🔊'}
+      </button>
+    </div>
+  )
+}
+
 function App() {
-  const [query, setQuery] = useState('wallpapers,EarthPorn')
+  const [query, setQuery] = useState('wallpapers,EarthPorn,gifs')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sourceInfo, setSourceInfo] = useState('')
@@ -123,7 +181,7 @@ function App() {
       const sources = [...new Set(ok.map((c) => c.value.source))].join(', ')
 
       setFeed(merged)
-      if (sources) setSourceInfo(`Loaded via: ${sources}`)
+      if (sources) setSourceInfo(`Loaded via: ${sources} • ${merged.length} media items`)
 
       if (!merged.length && bad.length) {
         setError(`Could not load media. ${bad[0].reason?.message ?? 'Request failed.'}`)
@@ -144,7 +202,7 @@ function App() {
       <header className="topbar glass">
         <motion.h1 initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>SubSwipe</motion.h1>
         <form onSubmit={onLoad} className="queryForm">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Subreddits (e.g. funny,memes,wallpapers)" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Subreddits (e.g. funny,memes,wallpapers,gifs)" />
           <button type="submit" disabled={loading}>{loading ? 'Loading…' : 'Load Feed'}</button>
         </form>
         {!!sourceInfo && <p className="info">{sourceInfo}</p>}
@@ -165,7 +223,7 @@ function App() {
           >
             <div className="mediaWrap glass">
               {item.type === 'video' ? (
-                <video src={item.url} controls playsInline preload="metadata" poster={item.thumb} onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = 'none' }} />
+                <ReelVideo item={item} />
               ) : (
                 <img src={item.url} loading="lazy" alt={item.title} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
               )}
