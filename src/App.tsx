@@ -131,7 +131,7 @@ function App() {
   return (
     <main>
       <header className="topbar">
-        <h1>Reddy Reels</h1>
+        <h1>SubSwipe</h1>
         <form onSubmit={onLoad} className="queryForm">
           <input
             value={query}
@@ -179,3 +179,4 @@ function App() {
 }
 
 export default App
+

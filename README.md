@@ -1,4 +1,4 @@
-# Reddy Reels
+# SubSwipe
 
 A seamless, swipe-style web app that pulls media from Reddit channels (subreddits) and presents it like short-form vertical reels.
 
@@ -35,10 +35,11 @@ npm run build
 ```
 
 Site URL:
-`https://<your-username>.github.io/reddy-reels/`
+`https://<your-username>.github.io/subswipe/`
 
 ## Roadmap
 - NSFW/safety filters
 - Save playlists/favorites
 - Infinite loading/pagination
 - Keyboard + gesture navigation enhancements
+
