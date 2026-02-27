@@ -79,45 +79,22 @@ function mapPost(post: RedditChild['data']): ReelItem[] {
   return []
 }
 
-async function getJsonWithFallback(url: string) {
-  const endpoints = [
-    { label: 'reddit', url },
-    { label: 'allorigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
-    { label: 'r.jina.ai', url: `https://r.jina.ai/http://www.reddit.com${new URL(url).pathname}${new URL(url).search}` },
-  ]
-
-  let lastErr = 'Fetch failed'
-  for (const ep of endpoints) {
-    try {
-      const res = await fetch(ep.url)
-      if (!res.ok) {
-        lastErr = `${ep.label} ${res.status}`
-        continue
-      }
-
-      if (ep.label === 'r.jina.ai') {
-        const text = await res.text()
-        const jsonStart = text.indexOf('{')
-        if (jsonStart < 0) continue
-        const parsed = JSON.parse(text.slice(jsonStart))
-        return { json: parsed, source: ep.label }
-      }
-
-      const parsed = await res.json()
-      return { json: parsed, source: ep.label }
-    } catch (e) {
-      lastErr = e instanceof Error ? e.message : 'Unknown fetch failure'
-    }
-  }
-
-  throw new Error(lastErr)
-}
-
 async function fetchSubredditMedia(name: string): Promise<{ items: ReelItem[]; source: string }> {
-  const url = `https://www.reddit.com/r/${name}/hot.json?raw_json=1&limit=100`
-  const { json, source } = await getJsonWithFallback(url)
-  const children: RedditChild[] = json?.data?.children ?? []
-  return { items: children.flatMap((c) => mapPost(c.data)), source }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 12000)
+  try {
+    const url = `https://www.reddit.com/r/${name}/hot.json?raw_json=1&limit=100`
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`r/${name}: HTTP ${res.status}`)
+    const json = await res.json()
+    const children: RedditChild[] = json?.data?.children ?? []
+    return { items: children.flatMap((c) => mapPost(c.data)), source: 'reddit' }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function App() {
@@ -138,12 +115,23 @@ function App() {
     setSourceInfo('')
 
     try {
-      const chunks = await Promise.all(subreddits.map((s) => fetchSubredditMedia(s)))
-      const merged = chunks.flatMap((c) => c.items).sort((a, b) => b.ups - a.ups)
-      const sources = [...new Set(chunks.map((c) => c.source))].join(', ')
+      const settled = await Promise.allSettled(subreddits.map((s) => fetchSubredditMedia(s)))
+      const ok = settled.filter((r): r is PromiseFulfilledResult<{ items: ReelItem[]; source: string }> => r.status === 'fulfilled')
+      const bad = settled.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+
+      const merged = ok.flatMap((c) => c.value.items).sort((a, b) => b.ups - a.ups)
+      const sources = [...new Set(ok.map((c) => c.value.source))].join(', ')
+
       setFeed(merged)
-      setSourceInfo(`Loaded via: ${sources}`)
-      if (!merged.length) setError('No media found in selected subreddits.')
+      if (sources) setSourceInfo(`Loaded via: ${sources}`)
+
+      if (!merged.length && bad.length) {
+        setError(`Could not load media. ${bad[0].reason?.message ?? 'Request failed.'}`)
+      } else if (!merged.length) {
+        setError('No media found in selected subreddits.')
+      } else if (bad.length) {
+        setError(`Loaded partial results. ${bad.length} subreddit request(s) failed.`)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load feed')
     } finally {
@@ -177,9 +165,9 @@ function App() {
           >
             <div className="mediaWrap glass">
               {item.type === 'video' ? (
-                <video src={item.url} controls playsInline preload="metadata" poster={item.thumb} />
+                <video src={item.url} controls playsInline preload="metadata" poster={item.thumb} onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = 'none' }} />
               ) : (
-                <img src={item.url} loading="lazy" alt={item.title} />
+                <img src={item.url} loading="lazy" alt={item.title} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
               )}
             </div>
             <footer className="meta glass">
