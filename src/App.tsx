@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { motion } from 'framer-motion'
 import './App.css'
@@ -44,6 +44,20 @@ function normalizeSubreddits(input: string) {
     .map((s) => s.trim().replace(/^r\//i, ''))
     .filter(Boolean)
 }
+
+const suggestedSubreddits = [
+  'pics',
+  'videos',
+  'gifs',
+  'funny',
+  'memes',
+  'nextfuckinglevel',
+  'interestingasfuck',
+  'EarthPorn',
+  'wallpapers',
+  'aww',
+  'oddlysatisfying',
+]
 
 const toVideoIfGifv = (url: string) => (url.endsWith('.gifv') ? url.replace(/\.gifv$/i, '.mp4') : url)
 
@@ -165,6 +179,29 @@ function App() {
   const [activeMetaId, setActiveMetaId] = useState<string | null>(null)
 
   const subreddits = useMemo(() => normalizeSubreddits(query), [query])
+  const currentToken = useMemo(() => query.split(',').slice(-1)[0]?.trim() ?? '', [query])
+  const filteredSuggestions = useMemo(
+    () => suggestedSubreddits.filter((s) => s.toLowerCase().startsWith(currentToken.toLowerCase()) && !subreddits.includes(s)).slice(0, 6),
+    [currentToken, subreddits],
+  )
+
+  const applySuggestion = (name: string) => {
+    const parts = query.split(',')
+    if (parts.length === 0) {
+      setQuery(name)
+      return
+    }
+    parts[parts.length - 1] = ` ${name}`
+    const next = parts.join(',').replace(/^\s+/, '')
+    setQuery(next.endsWith(',') ? next : `${next},`)
+  }
+
+  useEffect(() => {
+    if (feed.length === 0 && !loading) {
+      onLoad().catch(() => null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onLoad = async (e?: FormEvent) => {
     e?.preventDefault()
@@ -204,9 +241,19 @@ function App() {
       <header className={`topbar glass ${showUi ? '' : 'hiddenUi'}`}>
         <motion.h1 initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>SubSwipe</motion.h1>
         <form onSubmit={onLoad} className="queryForm">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Subreddits (e.g. funny,memes,wallpapers,gifs)" />
+          <input list="subreddit-suggestions" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Subreddits (e.g. funny,memes,wallpapers,gifs)" />
           <button type="submit" disabled={loading}>{loading ? 'Loading…' : 'Load Feed'}</button>
         </form>
+        <datalist id="subreddit-suggestions">
+          {suggestedSubreddits.map((name) => <option key={name} value={name} />)}
+        </datalist>
+        {!!filteredSuggestions.length && (
+          <div className="suggestions">
+            {filteredSuggestions.map((s) => (
+              <button key={s} type="button" className="chip" onClick={() => applySuggestion(s)}>r/{s}</button>
+            ))}
+          </div>
+        )}
         {!!sourceInfo && <p className="info">{sourceInfo}</p>}
         {!!error && <p className="error">{error}</p>}
       </header>

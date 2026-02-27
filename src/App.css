@@ -57,6 +57,20 @@ main::after { background: #06b6d4; bottom: -15vw; right: -10vw; animation: blobB
   padding: 10px 14px;
   cursor: pointer;
 }
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.chip {
+  border: 1px solid rgba(190, 202, 255, 0.3);
+  background: rgba(18, 27, 46, 0.65);
+  color: #d9e3ff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
 .info { color: #9ec5ff; margin: 6px 0 0; font-size: .88rem; }
 .error { color: #ff9fb2; margin: 4px 0 0; font-size: .9rem; }
 
