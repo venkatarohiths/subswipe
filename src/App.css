@@ -57,6 +57,12 @@ main::after { background: #06b6d4; bottom: -15vw; right: -10vw; animation: blobB
   padding: 10px 14px;
   cursor: pointer;
 }
+.modeRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
 .suggestions {
   display: flex;
   flex-wrap: wrap;
